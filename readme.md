@@ -2,9 +2,26 @@
 
 ## Tree and Blocks
 
-(intro)
+This section fixes the structure of the project: from source code to artifact, peripheral, service, and auto-generated blocks. If a block is present in the repository, its place and role are considered fixed. File names should not scream at me: wherever a name is not fixed separately, `snake_case` is used.
 
 ### Project Seed
+
+A project must have both structure and meaning. `manifest.json` defines its formal side and stores its meta-details. `readme.md` reveals its idea and soul and must not be reduced to a dry run guide.
+
+The `core/` and `app/` blocks are intended for placing the project's source code. The presence of at least one of them is required. Both blocks use the same internal structure: `include/`, `src/`, `tests/`, and, where appropriate, `benchmarks/`. These directories form a consistent tree. If related files are present in more than one of them, they preserve the same relative path within the directory and follow a common naming pattern.
+
+* `include/` defines the reference layer of this structure. It is expected to contain primarily interface and template files; more specific rules for allowed extensions and related conventions are fixed in `manifest.json` and in coding style.
+
+* `src/` contains the block's working source files, including implementation files and `entry-point` sources.
+
+* `tests/` contains test files and is strongly encouraged for header-defined components with behaviour of their own. 
+
+* `benchmarks/` is an optional directory for benchmark files and is introduced only where performance measurements are actually justified.
+
+For files in `tests/` and `benchmarks/`, the same general principle is used: the base name is preserved, while the layer type is expressed by a suffix. The suffix for `tests/` is `_tests`; the suffix for `benchmarks/` is `_benchmarks`. If a source file becomes too large, its `.cpp` part may be split into a small number of logically grouped batches indexed from `0` to `9`; if there is only one such batch, the `0` index is preferably omitted.
+
+
+The distinction between `core/` and `app/` lies primarily at the `entry-point` level. The `core/` block is intended for a CLI, so each of its `entry-point`s must be accompanied by a `readme.md`. The `app/` block is intended for a windowed interface, so a separate `readme.md` inside it is generally not required. In all other respects, both blocks follow the same structure. Dependencies between these blocks are asymmetric: `app/`may depend on`core/`, whereas `core/`must remain independent of`app/`.
 
 ### Asset Topology
 
@@ -44,7 +61,7 @@ These blocks are not mandatory, yet whenever they appear they become integral pa
 
 * The `bindings/` directory is intended for integrations and wrapper layers around the main project for other languages and external ecosystems. Its first level of nesting is organized by target environment or language, although the concrete names of such subdirectories are fixed only as the corresponding support appears and stabilizes; the list of supported bindings may therefore be specified more explicitly later. In this context, a `java/` directory inside `bindings/` should be understood broadly: it may denote the JVM block as a whole rather than Java code in the narrow sense alone, so placing Kotlin code inside `bindings/java/` is considered normal. The `bindings/` block should also be expected to receive automatic `.gitignore` updates based on the set of languages and toolchain environments actually used in the project; in that sense, it forms a local ecosystem of its own, somewhat less dependent on the repository’s outer structure as a whole.
 
-* The `shim/` directory is intended for thin external shims invoked by the main code only where such separation is genuinely justified. It is not a place for user-facing scripts, development utilities, build or run wrappers, or a substitute for the facade; for that reason, the name `scripts/` is forbidden for this kind of block, since it blurs distinct roles. The contents of `shim/` are not meant to be invoked manually in the ordinary workflow, and preference should be given to keeping the main logic in C++ whenever possible, leaving `shim/` only for external integration points that are actually necessary.
+* The `shim/` directory is intended for thin external shims invoked by the main code only where such separation is genuinely justified. It is not a place for user-facing scripts, development utilities, build or run wrappers, or a substitute for the facade; for that reason, the name `scripts/` and `Makefile` are forbidden for this kind of block, since it blurs distinct roles. The contents of `shim/` are not meant to be invoked manually in the ordinary workflow, and preference should be given to keeping the main logic in C++ whenever possible, leaving `shim/` only for external integration points that are actually necessary.
 
 * The `tex/` directory is intended for TeX sources and their related materials. Automatic PDF generation is performed only for `.tex` files located directly in the root of `tex/`; `.tex` files inside nested subdirectories are not processed automatically by default. The generated PDF artifacts are placed into `assets/showcase/` and added to `assets/showcase/index.tsv` automatically. The `tex/` directory may also contain any materials required for successful generation, including styles, bibliography sources, images, and other supporting files; its internal structure is otherwise left unrestricted.
 
