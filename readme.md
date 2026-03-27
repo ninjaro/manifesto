@@ -1,6 +1,6 @@
 # MANIFESTO
 
-## Tree and Blocks
+## 0. Tree and Blocks
 
 This section fixes the structure of the project: from source code to artifact, peripheral, service, and auto-generated blocks. If a block is present in the repository, its place and role are considered fixed. File names should not scream at me: wherever a name is not fixed separately, `snake_case` is used.
 
@@ -21,7 +21,7 @@ The `core/` and `app/` blocks are intended for placing the project's source code
 For files in `tests/` and `benchmarks/`, the same general principle is used: the base name is preserved, while the layer type is expressed by a suffix. The suffix for `tests/` is `_tests`; the suffix for `benchmarks/` is `_benchmarks`. If a source file becomes too large, its `.cpp` part may be split into a small number of logically grouped batches indexed from `0` to `9`; if there is only one such batch, the `0` index is preferably omitted.
 
 
-The distinction between `core/` and `app/` lies primarily at the `entry-point` level. The `core/` block is intended for a CLI, so each of its `entry-point`s must be accompanied by a `readme.md`. The `app/` block is intended for a windowed interface, so a separate `readme.md` inside it is generally not required. In all other respects, both blocks follow the same structure. Dependencies between these blocks are asymmetric: `app/`may depend on`core/`, whereas `core/`must remain independent of`app/`.
+The distinction between `core/` and `app/` lies primarily at the `entry-point` level. The `core/` block is intended for a CLI, so each of its `entry-point`s must be accompanied by a `readme.md`. The `app/` block is intended for a windowed interface, so a separate `readme.md` inside it is generally not required. In all other respects, both blocks follow the same structure. Dependencies between these blocks are asymmetric: `app/` may depend on `core/`, whereas `core/` must remain independent of `app/`.
 
 ### Asset Topology
 
@@ -65,3 +65,32 @@ These blocks are not mandatory, yet whenever they appear they become integral pa
 
 * The `tex/` directory is intended for TeX sources and their related materials. Automatic PDF generation is performed only for `.tex` files located directly in the root of `tex/`; `.tex` files inside nested subdirectories are not processed automatically by default. The generated PDF artifacts are placed into `assets/showcase/` and added to `assets/showcase/index.tsv` automatically. The `tex/` directory may also contain any materials required for successful generation, including styles, bibliography sources, images, and other supporting files; its internal structure is otherwise left unrestricted.
 
+## 1. Facade and Development
+
+A project must be able to present itself in a minimally sufficient form. Not as a showcase, not as a promise, and not as the full internal kitchen, but as a subset already sufficient for building, running, and demonstrating its primary functionality. This subset is hereafter called the `facade`.
+
+The introduction of the `facade` also clarifies that not everyone approaches the project in the same role. A `user` is someone who interacts with the project through ready-made artifacts and does not enter the repository at all. A `visitor` is someone who clones the repository and uses the `facade` path in order to build and run the project, but does not enter development mode. A `developer` is someone who works in development mode, whether or not they modify the code directly; entering the fuller build, diagnostic, and control flows is already sufficient for that role.
+
+The `facade` is not intended for the `user`, who is expected to meet the project through releases and runtime artifacts. It is intended for the `visitor`: the one who wants a short and honest entry into the project without accepting its full internal burden in advance. The `developer`, by contrast, steps beyond that boundary and takes responsibility for the richer and stricter machinery of the project.
+
+The `facade` does not replace the project and does not reduce it to a decorative shell. It fixes a mode of entry in which the project can already be built, run, and seen in action without forcing the `visitor` into its inner layers too early. `readme.md` may reveal the project's idea, purpose, and soul; the `facade` must make it possible to verify that the project is alive.
+
+From this follows a simple requirement: entry through the `facade` must be short, stable, and uniform from project to project. Building and running the MVP must not require extra flags, manual profile selection, reading service files, or deciphering someone else's build magic. In the normal case, two or three commands should be enough.
+
+A canonical `facade` path is therefore fixed as the following command sequence:
+
+```bash
+cmake -S . -B build
+cmake --build build
+./build/mvp
+```
+
+A `visitor` who came not to inspect the internals but simply to build and run the project should not be forced to deal with `.clang-tidy`, `.clang-format`, `Doxyfile`, private toolchain decisions, CI-related scaffolding, or any other service noise.
+
+The `facade`, however, covers only the minimally sufficient form of the project. Everything that goes beyond the MVP — the full set of artifacts, extended configurations, warnings, additional checks, detailed reports, fine-grained build and linking decisions, and similar machinery — belongs not to the `facade` but to the development mode. That mode may be richer, stricter, and noisier; this is normal. What matters is that such noise remain justified and contained: it must not break the short entry path, and it must not impose its own rules where only a minimal working run is needed.
+
+## 2. Code and Style(s)
+
+## 3. `manifest.json`
+
+## 4. Marx and Engels
