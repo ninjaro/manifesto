@@ -87,7 +87,16 @@ cmake --build build
 
 A `visitor` who came not to inspect the internals but simply to build and run the project should not be forced to deal with `.clang-tidy`, `.clang-format`, `Doxyfile`, private toolchain decisions, CI-related scaffolding, or any other service noise.
 
-The `facade`, however, covers only the minimally sufficient form of the project. Everything that goes beyond the MVP — the full set of artifacts, extended configurations, warnings, additional checks, detailed reports, fine-grained build and linking decisions, and similar machinery — belongs not to the `facade` but to the development mode. That mode may be richer, stricter, and noisier; this is normal. What matters is that such noise remain justified and contained: it must not break the short entry path, and it must not impose its own rules where only a minimal working run is needed.
+The `facade`, however, covers only the minimally sufficient form of the project. Everything that goes beyond the MVP — the full set of artifacts, extended configurations, warnings, diagnostics, additional checks, reports, and similar machinery — belongs not to the facade but to the development mode. That mode may be richer, stricter, and noisier; this is normal. What matters is that such noise remain justified and contained: it must not break the short entry path through the facade, and it must not impose its own demands where only a minimal working run is needed.
+
+That difference becomes concrete in the build environment itself. The facade relies on a slim generated build surface and keeps the entry path short. Development mode, by contrast, requires fuller generated `CMakeLists.txt` surfaces that shape a richer internal build tree: separate component-level build paths, correct internal linking between libraries and runnable artifacts, profile-specific branches, and room for diagnostics, checks, and related service outputs. This additional structure exists to keep the project organized, not to excuse clutter. The repository must still not decay into some rubbish dump; the justified noise of development belongs inside an ordered `build/` tree rather than in the visible root layout.
+
+For that reason, development mode is not defined by a naive manual `cmake` sequence. The facade may be entered through a fixed minimal command path, but the fuller development surface is expected to be materialized and controlled through the project’s own generated tooling. This is where stricter warnings, broader diagnostics, richer reports, and non-facade build configurations properly belong. The operational details may be described later; here it is enough to fix the boundary itself.
+
+The same applies to verification flows. Local checks and GitHub-side automation must not become two separate truths that drift apart over time. They are expected to continue the same project logic across different environments: one closer to the developer’s machine, the other closer to the repository’s public control surface. Their concrete commands and actors may be introduced later, but their unity of intent belongs here.
+
+The facade and the development mode therefore do not describe two different projects. They describe two different depths of entry into the same one. They may differ sharply in noise level, strictness, and internal machinery, yet they are still expected to coexist within the same `build/` directory and to remain non-conflicting even when each path is designed to stand on its own.
+
 
 ## 2. Code and Style(s)
 
