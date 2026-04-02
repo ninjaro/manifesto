@@ -1,3 +1,5 @@
+![Logo](assets/brand/logo.svg)
+
 # MANIFESTO
 
 ## 0. Tree and Blocks
@@ -65,7 +67,7 @@ These blocks are not mandatory, yet whenever they appear they become integral pa
 
 * The `tex/` directory is intended for TeX sources and their related materials. Automatic PDF generation is performed only for `.tex` files located directly in the root of `tex/`; `.tex` files inside nested subdirectories are not processed automatically by default. The generated PDF artifacts are placed into `assets/showcase/` and added to `assets/showcase/index.tsv` automatically. The `tex/` directory may also contain any materials required for successful generation, including styles, bibliography sources, images, and other supporting files; its internal structure is otherwise left unrestricted.
 
-## 1. Facade and Development
+## 1. Facade and Modes/Surfaces
 
 A project must be able to present itself in a minimally sufficient form. Not as a showcase, not as a promise, and not as the full internal kitchen, but as a subset already sufficient for building, running, and demonstrating its primary functionality. This subset is hereafter called the `facade`.
 
@@ -87,18 +89,99 @@ cmake --build build
 
 A `visitor` who came not to inspect the internals but simply to build and run the project should not be forced to deal with `.clang-tidy`, `.clang-format`, `Doxyfile`, private toolchain decisions, CI-related scaffolding, or any other service noise.
 
-The `facade`, however, covers only the minimally sufficient form of the project. Everything that goes beyond the MVP — the full set of artifacts, extended configurations, warnings, diagnostics, additional checks, reports, and similar machinery — belongs not to the facade but to the development mode. That mode may be richer, stricter, and noisier; this is normal. What matters is that such noise remain justified and contained: it must not break the short entry path through the facade, and it must not impose its own demands where only a minimal working run is needed.
+The `facade`, however, covers only the minimally sufficient form of the project. Everything that goes beyond the MVP — the full set of artifacts, extended configurations, warnings, diagnostics, additional checks, reports, and similar machinery — belongs not to the facade but to the development mode. That mode may be richer, stricter, and noisier; this is normal. What matters is that such noise remains justified and contained: it must not break the short entry path through the facade, and it must not impose its own demands where only a minimal working run is needed.
 
-That difference becomes concrete in the build environment itself. The facade relies on a slim generated build surface and keeps the entry path short. Development mode, by contrast, requires fuller generated `CMakeLists.txt` surfaces that shape a richer internal build tree: separate component-level build paths, correct internal linking between libraries and runnable artifacts, profile-specific branches, and room for diagnostics, checks, and related service outputs. This additional structure exists to keep the project organized, not to excuse clutter. The repository must still not decay into some rubbish dump; the justified noise of development belongs inside an ordered `build/` tree rather than in the visible root layout.
+That difference becomes concrete in the build environment itself. The facade relies on a slim generated build surface and keeps the entry path short. Development mode, by contrast, requires fuller generated `CMakeLists.txt` surfaces that shape a richer internal build tree: separate component-level build paths, correct internal linking between libraries and runnable artifacts, profile-specific branches, and room for diagnostics, checks, and related service outputs. This additional structure exists to keep the project organized, not to excuse clutter. The earlier rule against turning the repository into some rubbish dump still applies here as well, but now at the level of the build environment itself.
 
-For that reason, development mode is not defined by a naive manual `cmake` sequence. The facade may be entered through a fixed minimal command path, but the fuller development surface is expected to be materialized and controlled through the project’s own generated tooling. This is where stricter warnings, broader diagnostics, richer reports, and non-facade build configurations properly belong. The operational details may be described later; here it is enough to fix the boundary itself.
+For that reason, development mode does not begin from handwritten local `CMake` logic or from a naive manual command sequence. Under MANIFESTO, it is entered through the project’s generated tooling surface, which materializes the fuller development environment and keeps it coherent across different contexts. Once that surface has been materialized, manual terminal steps and IDE-driven workflows may still interact with it, inspect it, and in some cases continue parts of it. What remains fixed is the point of entry: the development surface is tooling-owned rather than handwritten.
+
+That surface does not belong to the tracked repository state in the same sense as the facade-facing one. It may be materialized locally on a developer’s machine or temporarily inside CI, and in both cases it belongs to the active environment rather than to the committed project tree as such. Some of the artifacts produced there may still be valuable in their own right — including reports, documentation, and runnable outputs — but the surface that produces them remains generated and environment-bound rather than authoritative as editable project state.
 
 The same applies to verification flows. Local checks and GitHub-side automation must not become two separate truths that drift apart over time. They are expected to continue the same project logic across different environments: one closer to the developer’s machine, the other closer to the repository’s public control surface. Their concrete commands and actors may be introduced later, but their unity of intent belongs here.
 
 The facade and the development mode therefore do not describe two different projects. They describe two different depths of entry into the same one. They may differ sharply in noise level, strictness, and internal machinery, yet they are still expected to coexist within the same `build/` directory and to remain non-conflicting even when each path is designed to stand on its own.
 
+## 2. Code and Styles
 
-## 2. Code and Style(s)
+This section does not treat style as a cosmetic layer. Here, style includes naming, file placement, directory structure, and the local shape of code, because these choices determine whether ambiguity, review cost, and structural drift are reduced or merely postponed. Under MANIFESTO, these conventions are determined by shared policy rather than left to per-project taste or local discretion.
+
+From that starting point, the ordinary unit of code organization is taken to be neither any file in isolation nor an arbitrary `.cpp` implementation, but the `referent`: a header file under `include/` that defines a named entity or a coherent group of entities and serves as the point of reference for the other related files. It is the `referent` that is treated as the primary structural unit of the source tree.
+
+All other files are considered in relation to it. An implementation in `src/`, a template part in `.tpp`, tests in `tests/`, benchmarks in `benchmarks/`, and other permitted companion files do not form independent primary units: they belong to a `referent`, extend it, and must preserve an explicit connection to it through path, name, or role. The only exception is formed by `entry-point` files containing `main()`: they are not `referents` and are not required to serve as the implementation of anything else.
+
+From this follows the way the tree itself is read. The structure of the project is judged primarily by the set of `referent`s and by the way they are distributed across directories, rather than by the total number of files taken together. For the purposes of this section, the source tree is treated as a `referent-tree`: `referent`s are its terminal nodes, while directories that organize them are treated as `module`s. A directory qualifies as a `module` if and only if its subtree contains at least one descendant `referent`; a `module` may therefore contain `referent`s directly, other `module`s, or both.
+
+The depth and width of that tree must be justified by the shape of the `referent` surface. Directories are introduced not for decorative nesting and not for the mechanical redistribution of files, but to express real semantic boundaries between parts of the code. For that reason, the structure of the `referent-tree` may be evaluated through balance-oriented diagnostic measures that capture excessive flatness, unnecessary depth, and weakly justified branching.
+
+To make such measures precise, let `T` denote the reduced `referent-tree`, obtained from the source tree by excluding every subtree that contains no `referent`. Let `M(T)` denote the set of all `module`s in `T`. For each node `v`, let `R(v)` denote the number of descendant `referent`s in the subtree of `v`, let `B(v)` denote the number of its direct children in `T`, and let `H(v)` denote the maximum depth from `v` to a descendant `referent`, measured in edges.
+
+Under this convention, a directory qualifies as a `module` if and only if its subtree contains at least one descendant `referent`; a `module` may therefore contain `referent`s directly, nested `module`s, or both. This reduction is intended to evaluate the structural shape of meaningful code organization rather than the raw noise of the full file tree.
+
+For a `module` node `v` with direct children $c_1, \ldots, c_{B(v)}$, define the descendant-share of each child by
+
+$$
+p_i = \frac{R(c_i)}{R(v)}.
+$$
+
+These shares allow the local branching shape of a `module` to be evaluated in a way that is closer in spirit to multifurcating balance measures than to binary-tree-only heuristics [ref-colless-like].
+
+The first local measure is therefore a branching-imbalance term:
+
+$$
+I(v)=
+\begin{cases}
+0, & B(v)\le 1,\
+1-\dfrac{-\sum_{i=1}^{B(v)} p_i \log p_i}{\log B(v)}, & B(v)>1.
+\end{cases}
+$$
+
+This term is minimal when the descendant `referent`s are distributed as evenly as possible across the immediate children of `v`, and increases as the distribution becomes more skewed. In that sense, it uses a normalized entropy signal to penalize weakly justified branching [ref-entropy-balance].
+
+The second local measure captures excess depth. This follows the general idea that a balanced tree should not allow some leaves to drift much farther away than others without structural justification [ref-balanced-tree]. Let
+
+$$
+H_{\mathrm{ideal}}(v)=\left\lceil \log_{\max(2,B(v))} R(v) \right\rceil
+$$
+
+be the soft ideal depth of the subtree rooted at `v`, and define
+
+$$
+D(v)=
+\max\left(
+0,,
+\frac{H(v)-H_{\mathrm{ideal}}(v)}
+{\max(1,H_{\mathrm{ideal}}(v))}
+\right).
+$$
+
+This term remains zero while the subtree depth is broadly consistent with its branching profile and descendant volume, and grows once the subtree begins to stretch into chains of directories whose structural contribution is weak.
+
+The third local measure captures width overload. Since a structurally flat dumping ground is no more desirable than gratuitous nesting, define the soft width target
+
+$$
+B_{\mathrm{soft}}(v)=\left\lceil \sqrt{R(v)} \right\rceil
+$$
+
+and the corresponding width penalty
+
+$$
+W(v)=
+\max\left(
+0,,
+\frac{B(v)-B_{\mathrm{soft}}(v)}
+{\max(1,B_{\mathrm{soft}}(v))}
+\right).
+$$
+
+This term is MANIFESTO-specific: it is not claimed as a standard balance index, but introduced as a corrective signal against overly wide and weakly organized `module`s.
+
+If desired, these three terms may then be combined into a single local structural hint score,
+
+$$
+L(v)=0.50,I(v)+0.35,D(v)+0.15,W(v),
+$$
+
+where branching imbalance is treated as the strongest signal, excess depth as the second, and width overload as the third. A global tree-level score may in turn be obtained by aggregating `L(v)` over all `module`s in `M(T)` with weights derived from descendant `referent` volume. Such a score should be treated as diagnostic rather than absolute: its purpose is to expose suspicious shapes in the tree, not to force semantically justified structure into artificial symmetry.
 
 ## 3. `manifest.json`
 
