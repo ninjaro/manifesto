@@ -180,10 +180,10 @@ This term is not presented as a standard balance index, but is introduced here a
 These three terms may also be combined into a single local structural hint score,
 
 $$
-L(v)=0.50 I(v)+0.35 D(v)+0.15 W(v).
+L(v)=\frac12 I(v)+\frac13 D(v)+\frac16 W(v).
 $$
 
-Here, branching imbalance is treated as the strongest signal, excess depth as the second, and width overload as the third. A global tree-level score may in turn be obtained by aggregating `L(v)` over all `module`s in `M(T)` with weights derived from descendant `referent` volume. Such a score should be treated as diagnostic rather than absolute: its purpose is to expose suspicious shapes in the tree, not to force semantically justified structure into artificial symmetry.
+Here, branching imbalance receives half of the total weight, excess depth one third, and width overload the remaining sixth. A global tree-level score may in turn be obtained by aggregating `L(v)` over all `module`s in `M(T)` with weights derived from descendant `referent` volume. Such a score should be treated as diagnostic rather than absolute: its purpose is to expose suspicious shapes in the tree, not to force semantically justified structure into artificial symmetry.
 
 ## 3. `manifest.json`
 
