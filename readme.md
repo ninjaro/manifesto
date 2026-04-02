@@ -103,41 +103,43 @@ The facade and the development mode therefore do not describe two different proj
 
 ## 2. Code and Styles
 
-This section does not treat style as a cosmetic layer. Here, style includes naming, file placement, directory structure, and the local shape of code, because these choices determine whether ambiguity, review cost, and structural drift are reduced or merely postponed. Under MANIFESTO, these conventions are determined by shared policy rather than left to per-project taste or local discretion.
+This section does not treat style as a cosmetic layer. Style includes naming, file placement, directory structure, and the local shape of code, because these choices determine whether ambiguity, review cost, and structural drift are reduced or merely postponed. These conventions are fixed by shared policy rather than left to per-project taste.
 
-From that starting point, the ordinary unit of code organization is taken to be neither any file in isolation nor an arbitrary `.cpp` implementation, but the `referent`: a header file under `include/` that defines a named entity or a coherent group of entities and serves as the point of reference for the other related files. It is the `referent` that is treated as the primary structural unit of the source tree.
+The primary structural unit of the source tree is the `referent`: a header file under `include/` that defines a named entity or a coherent group of entities and serves as the point of reference for related files.
 
-All other files are considered in relation to it. An implementation in `src/`, a template part in `.tpp`, tests in `tests/`, benchmarks in `benchmarks/`, and other permitted companion files do not form independent primary units: they belong to a `referent`, extend it, and must preserve an explicit connection to it through path, name, or role. The only exception is formed by `entry-point` files containing `main()`: they are not `referents` and are not required to serve as the implementation of anything else.
+Files in `src/`, companion `.tpp` files, tests in `tests/`, benchmarks in `benchmarks/`, and other permitted companion layers are interpreted in relation to a `referent`. They do not form independent primary units: they belong to a `referent`, extend it, and preserve an explicit connection to it through path, name, or role. The only exception is formed by `entry-point` files containing `main()`: they are not `referent`s and are not required to implement anything else.
 
-From this follows the way the tree itself is read. The structure of the project is judged primarily by the set of `referent`s and by the way they are distributed across directories, rather than by the total number of files taken together. For the purposes of this section, the source tree is treated as a `referent-tree`: `referent`s are its terminal nodes, while directories that organize them are treated as `module`s. A directory qualifies as a `module` if and only if its subtree contains at least one descendant `referent`; a `module` may therefore contain `referent`s directly, other `module`s, or both.
+For the purposes of this section, the meaningful source tree is treated as a `referent-tree`: its terminal nodes are `referent`s, while directories that organize them are treated as `module`s. A directory qualifies as a `module` if and only if its subtree contains at least one descendant `referent`; a `module` may therefore contain `referent`s directly, nested `module`s, or both. Subtrees that contain no `referent` are ignored when the structural shape of the code is evaluated.
 
-The depth and width of that tree must be justified by the shape of the `referent` surface. Directories are introduced not for decorative nesting and not for the mechanical redistribution of files, but to express real semantic boundaries between parts of the code. For that reason, the structure of the `referent-tree` may be evaluated through balance-oriented diagnostic measures that capture excessive flatness, unnecessary depth, and weakly justified branching.
+The depth and width of the `referent-tree` must be justified by the shape of the `referent` surface. Directories are introduced not for decorative nesting and not for the mechanical redistribution of files, but to express real semantic boundaries between parts of the code. A flat storage heap is no better than a chain of directories whose only job is to pretend that structure exists.
 
-To make such measures precise, let `T` denote the reduced `referent-tree`, obtained from the source tree by excluding every subtree that contains no `referent`. Let `M(T)` denote the set of all `module`s in `T`. For each node `v`, let `R(v)` denote the number of descendant `referent`s in the subtree of `v`, let `B(v)` denote the number of its direct children in `T`, and let `H(v)` denote the maximum depth from `v` to a descendant `referent`, measured in edges.
+For that reason, the `referent-tree` may be evaluated through balance-oriented diagnostic measures that expose excessive flatness, unnecessary depth, and weakly justified branching. These measures are diagnostic rather than absolute: their purpose is not to force artificial symmetry, but to make suspicious structural shapes visible.
 
-Under this convention, a directory qualifies as a `module` if and only if its subtree contains at least one descendant `referent`; a `module` may therefore contain `referent`s directly, nested `module`s, or both. This reduction is intended to evaluate the structural shape of meaningful code organization rather than the raw noise of the full file tree.
+To make such measures precise, let `T` denote the reduced `referent-tree`, obtained from the source tree by excluding every subtree that contains no `referent`, so that only structurally meaningful code organization remains. Let `M(T)` denote the set of all `module`s in `T`.
 
-For a `module` node `v` with direct children $c_1, \ldots, c_{B(v)}$, define the descendant-share of each child by
+For each node `v` in `T`, let `R(v)` denote the number of `referent` nodes in the subtree rooted at `v`, let `B(v)` denote the number of direct children of `v` in `T`, and let `H(v)` denote the maximum depth from `v` to a descendant `referent`, measured in edges.
+
+For a `module` node `v` with direct children $c_1, \ldots, c_{B(v)}$, define the share of each child in the descendant `referent` volume of `v` by
 
 $$
 p_i = \frac{R(c_i)}{R(v)}.
 $$
 
-These shares allow the local branching shape of a `module` to be evaluated in a way that is closer in spirit to multifurcating balance measures than to binary-tree-only heuristics [ref-colless-like].
+These shares make it possible to evaluate the local branching shape of a `module` in a way that naturally accommodates non-binary branching [ref-colless-like].
 
 The first local measure is therefore a branching-imbalance term:
 
 $$
 I(v)=
 \begin{cases}
-0, & B(v)\le 1,\
+0, & B(v)\le 1, \\
 1-\dfrac{-\sum_{i=1}^{B(v)} p_i \log p_i}{\log B(v)}, & B(v)>1.
 \end{cases}
 $$
 
 This term is minimal when the descendant `referent`s are distributed as evenly as possible across the immediate children of `v`, and increases as the distribution becomes more skewed. In that sense, it uses a normalized entropy signal to penalize weakly justified branching [ref-entropy-balance].
 
-The second local measure captures excess depth. This follows the general idea that a balanced tree should not allow some leaves to drift much farther away than others without structural justification [ref-balanced-tree]. Let
+The second local measure captures excess depth. It follows the general idea that a balanced tree should not allow some leaves to drift much farther away than others without structural justification [ref-balanced-tree]. Let
 
 $$
 H_{\mathrm{ideal}}(v)=\left\lceil \log_{\max(2,B(v))} R(v) \right\rceil
@@ -148,13 +150,13 @@ be the soft ideal depth of the subtree rooted at `v`, and define
 $$
 D(v)=
 \max\left(
-0,,
+0,
 \frac{H(v)-H_{\mathrm{ideal}}(v)}
 {\max(1,H_{\mathrm{ideal}}(v))}
 \right).
 $$
 
-This term remains zero while the subtree depth is broadly consistent with its branching profile and descendant volume, and grows once the subtree begins to stretch into chains of directories whose structural contribution is weak.
+This term remains zero while the subtree depth is broadly consistent with its branching profile and descendant `referent` volume, and grows once the subtree begins to stretch into chains of directories whose structural contribution is weak.
 
 The third local measure captures width overload. Since a structurally flat dumping ground is no more desirable than gratuitous nesting, define the soft width target
 
@@ -167,21 +169,21 @@ and the corresponding width penalty
 $$
 W(v)=
 \max\left(
-0,,
+0,
 \frac{B(v)-B_{\mathrm{soft}}(v)}
 {\max(1,B_{\mathrm{soft}}(v))}
 \right).
 $$
 
-This term is MANIFESTO-specific: it is not claimed as a standard balance index, but introduced as a corrective signal against overly wide and weakly organized `module`s.
+This term is not presented as a standard balance index, but is introduced here as a corrective signal against overly wide and weakly organized `module`s.
 
-If desired, these three terms may then be combined into a single local structural hint score,
+These three terms may also be combined into a single local structural hint score,
 
 $$
-L(v)=0.50,I(v)+0.35,D(v)+0.15,W(v),
+L(v)=0.50 I(v)+0.35 D(v)+0.15 W(v).
 $$
 
-where branching imbalance is treated as the strongest signal, excess depth as the second, and width overload as the third. A global tree-level score may in turn be obtained by aggregating `L(v)` over all `module`s in `M(T)` with weights derived from descendant `referent` volume. Such a score should be treated as diagnostic rather than absolute: its purpose is to expose suspicious shapes in the tree, not to force semantically justified structure into artificial symmetry.
+Here, branching imbalance is treated as the strongest signal, excess depth as the second, and width overload as the third. A global tree-level score may in turn be obtained by aggregating `L(v)` over all `module`s in `M(T)` with weights derived from descendant `referent` volume. Such a score should be treated as diagnostic rather than absolute: its purpose is to expose suspicious shapes in the tree, not to force semantically justified structure into artificial symmetry.
 
 ## 3. `manifest.json`
 
