@@ -453,11 +453,13 @@ namespace manifest_support {
             return;
         }
 
-        for (const std::string field : { "repository", "revision", "component" }) {
+        for (const std::string field :
+             { "repository", "revision", "component" }) {
             if (!external.contains(field) || !external.at(field).is_string()
                 || trim_copy(external.at(field).get<std::string>()).empty()) {
-                errors->push_back(context + "." + field
-                                  + " must be a non-empty string");
+                errors->push_back(
+                    context + "." + field + " must be a non-empty string"
+                );
             }
         }
 

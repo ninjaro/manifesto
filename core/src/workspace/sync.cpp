@@ -1304,8 +1304,7 @@ namespace sync_support {
             = variable_prefix + "_SOURCE_DIR";
         const std::string internal_prefix
             = "_" + project_id + "_" + component_value.id;
-        const std::string external_target
-            = component_value.id + "__external";
+        const std::string external_target = component_value.id + "__external";
 
         std::ostringstream build_targets;
         std::ostringstream byproducts;
@@ -1313,33 +1312,34 @@ namespace sync_support {
         for (const artifact* artifact_value : artifacts) {
             build_targets << "        " << external.component_id << "__"
                           << artifact_value->id << "\n";
-            const std::string output_file
-                = "${CMAKE_STATIC_LIBRARY_PREFIX}" + artifact_value->name
-                + "${CMAKE_STATIC_LIBRARY_SUFFIX}";
+            const std::string output_file = "${CMAKE_STATIC_LIBRARY_PREFIX}"
+                + artifact_value->name + "${CMAKE_STATIC_LIBRARY_SUFFIX}";
             byproducts << "        <BINARY_DIR>/artifacts/" << output_file
                        << "\n";
 
-            const std::string target_name = cmake_target_name(artifact_ref {
-                component_value.id,
-                artifact_value->id,
-            });
+            const std::string target_name = cmake_target_name(
+                artifact_ref {
+                    component_value.id,
+                    artifact_value->id,
+                }
+            );
             imported_targets
                 << "add_library(" << target_name << " STATIC IMPORTED GLOBAL)\n"
-                << "set_target_properties(" << target_name
-                << " PROPERTIES\n"
+                << "set_target_properties(" << target_name << " PROPERTIES\n"
                 << "    IMPORTED_LOCATION \"${" << internal_prefix
                 << "_binary_dir}/artifacts/" << output_file << "\"\n"
-                << "    INTERFACE_INCLUDE_DIRECTORIES \"${"
-                << internal_prefix << "_include_dir}\"\n"
+                << "    INTERFACE_INCLUDE_DIRECTORIES \"${" << internal_prefix
+                << "_include_dir}\"\n"
                 << ")\n"
-                << "add_dependencies(" << target_name << " "
-                << external_target << ")\n\n";
+                << "add_dependencies(" << target_name << " " << external_target
+                << ")\n\n";
         }
 
         return render_required_sync_template(
             "cmake/component/external_project.tpl",
             {
-                { "repository_id", external_repository_id(external.repository) },
+                { "repository_id",
+                  external_repository_id(external.repository) },
                 { "repository", external.repository },
                 { "revision", external.revision },
                 { "local_source_variable", local_source_variable },
