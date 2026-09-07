@@ -932,6 +932,11 @@ command_error run_workspace_check(
     const std::optional<std::string>& sphinx_theme, std::ostream& out,
     std::ostream& err
 ) {
+    const command_error validity = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     if (!contains_string(known_check_profiles, profile)) {
         print_error(
             err, command_error::invalid_request,
@@ -956,9 +961,8 @@ command_error run_workspace_check(
         const std::vector<artifact_ref> requested_artifacts
             = workspace_artifacts_for_project(scope, project);
         if (!explicit_project_selection && requested_artifacts.empty()
-            && !supports_check_profile(project->manifest_value, profile)) {
-            out << project->manifest_value.id
-                << ": skipped (profile unsupported)\n";
+            && !supports_check_profile(*project->manifest_value, profile)) {
+            out << project->identity() << ": skipped (profile unsupported)\n";
             continue;
         }
 
@@ -968,7 +972,7 @@ command_error run_workspace_check(
             status = combine_status(
                 status,
                 command_support::run_check(
-                    project->root, project->manifest_value, profile,
+                    project->root, *project->manifest_value, profile,
                     std::nullopt, sphinx_theme, project_out, project_err
                 )
             );
@@ -977,7 +981,7 @@ command_error run_workspace_check(
                 status = combine_status(
                     status,
                     command_support::run_check(
-                        project->root, project->manifest_value, profile,
+                        project->root, *project->manifest_value, profile,
                         requested_artifact, sphinx_theme, project_out,
                         project_err
                     )

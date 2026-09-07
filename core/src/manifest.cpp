@@ -513,6 +513,10 @@ using namespace manifest_support;
 manifest_report load_manifest(const fs::path& manifest_path) {
     manifest_report report;
     report.path = manifest_path;
+    std::error_code status_error;
+    report.has_manifest
+        = std::filesystem::symlink_status(manifest_path, status_error).type()
+        != std::filesystem::file_type::not_found;
     std::ifstream file(manifest_path);
     if (!file.is_open()) {
         report.errors.push_back("missing manifest: " + manifest_path.string());
@@ -535,7 +539,7 @@ manifest_report load_manifest(const fs::path& manifest_path) {
                 validation_errors.end()
             );
         }
-    } catch (const json::parse_error& error) {
+    } catch (const json::exception& error) {
         report.errors.push_back(
             "invalid JSON in manifest: " + std::string(error.what())
         );

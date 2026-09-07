@@ -525,12 +525,15 @@ namespace command_support {
         json projects = json::array();
         for (const workspace_project* project :
              selected_workspace_projects(workspace, scope)) {
+            if (!project->valid()) {
+                projects.push_back(workspace_project_json(workspace, *project));
+                continue;
+            }
             json project_json = matrix_report(
-                project->manifest_value,
+                *project->manifest_value,
                 workspace_artifacts_for_project(scope, project)
             );
-            project_json["root"]
-                = relative_workspace_path(workspace, project->root);
+            project_json.update(workspace_project_json(workspace, *project));
             projects.push_back(project_json);
         }
         report["projects"] = projects;
@@ -554,14 +557,14 @@ namespace command_support {
         const std::ostringstream& project_err, std::ostream& out,
         std::ostream& err
     ) {
-        out << "== " << project->manifest_value.id << " ("
+        out << "== " << project->identity() << " ("
             << relative_workspace_path(workspace, project->root) << ") ==\n";
         out << project_out.str();
         if (!project_out.str().empty() && project_out.str().back() != '\n') {
             out << "\n";
         }
         if (!project_err.str().empty()) {
-            err << "== " << project->manifest_value.id << " ("
+            err << "== " << project->identity() << " ("
                 << relative_workspace_path(workspace, project->root)
                 << ") ==\n";
             err << project_err.str();
@@ -910,6 +913,22 @@ namespace command_support {
         return command_error::invalid_request;
     }
 
+    bool emit_invalid_workspace_project(
+        const workspace_context& workspace, const workspace_project& project,
+        std::ostream& out
+    ) {
+        if (project.valid()) {
+            return false;
+        }
+        out << project.identity() << " : "
+            << relative_workspace_path(workspace, project.manifest_path)
+            << " [invalid]\n";
+        for (const std::string& message : project.errors) {
+            out << "  " << message << "\n";
+        }
+        return true;
+    }
+
     command_error run_workspace_list(
         const workspace_context& workspace,
         const std::optional<std::string>& target, std::ostream& out
@@ -919,7 +938,10 @@ namespace command_support {
                 << "\n";
             out << "projects: " << workspace.projects.size() << "\n";
             for (const workspace_project& project : workspace.projects) {
-                out << "  " << project.manifest_value.id << " : "
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
+                out << "  " << project.identity() << " : "
                     << relative_workspace_path(workspace, project.root) << "\n";
             }
             if (!workspace.config.groups.empty()) {
@@ -934,31 +956,39 @@ namespace command_support {
 
         if (*target == "projects") {
             for (const workspace_project& project : workspace.projects) {
-                out << project.manifest_value.id << " : "
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
+                out << project.identity() << " : "
                     << relative_workspace_path(workspace, project.root) << "\n";
             }
             return command_error::ok;
         }
         if (*target == "components") {
             for (const workspace_project& project : workspace.projects) {
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
                 for (const component& component_value :
-                     project.manifest_value.components) {
-                    out << project.manifest_value.id << "/"
-                        << component_value.id << " : "
-                        << component_value.description << "\n";
+                     project.manifest_value->components) {
+                    out << project.identity() << "/" << component_value.id
+                        << " : " << component_value.description << "\n";
                 }
             }
             return command_error::ok;
         }
         if (*target == "artifacts") {
             for (const workspace_project& project : workspace.projects) {
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
                 for (const component& component_value :
-                     project.manifest_value.components) {
+                     project.manifest_value->components) {
                     for (const artifact& artifact_value :
                          component_value.artifacts) {
-                        out << project.manifest_value.id << "/"
-                            << component_value.id << ":" << artifact_value.id
-                            << " : " << artifact_value.kind << "\n";
+                        out << project.identity() << "/" << component_value.id
+                            << ":" << artifact_value.id << " : "
+                            << artifact_value.kind << "\n";
                     }
                 }
             }
@@ -966,16 +996,19 @@ namespace command_support {
         }
         if (*target == "profiles") {
             for (const workspace_project& project : workspace.projects) {
-                out << project.manifest_value.id << "\n";
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
+                out << project.identity() << "\n";
                 out << "  build:";
                 for (const std::string& profile :
-                     supported_build_profiles(project.manifest_value)) {
+                     supported_build_profiles(*project.manifest_value)) {
                     out << " " << profile;
                 }
                 out << "\n";
                 out << "  check:";
                 for (const std::string& profile :
-                     supported_check_profiles(project.manifest_value)) {
+                     supported_check_profiles(*project.manifest_value)) {
                     out << " " << profile;
                 }
                 out << "\n";
@@ -984,9 +1017,12 @@ namespace command_support {
         }
         if (*target == "platforms") {
             for (const workspace_project& project : workspace.projects) {
-                out << project.manifest_value.id << " :";
+                if (emit_invalid_workspace_project(workspace, project, out)) {
+                    continue;
+                }
+                out << project.identity() << " :";
                 for (const std::string& platform :
-                     supported_platforms(project.manifest_value)) {
+                     supported_platforms(*project.manifest_value)) {
                     out << " " << platform;
                 }
                 out << "\n";

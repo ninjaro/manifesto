@@ -201,6 +201,11 @@ command_error run_workspace_doctor(
     const std::optional<std::string>& profile, const workspace_scope& scope,
     std::ostream& out, std::ostream& err
 ) {
+    const command_error validity = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     command_error status = command_error::ok;
     for (const workspace_project* project :
          selected_workspace_projects(workspace, scope)) {
@@ -212,7 +217,7 @@ command_error run_workspace_doctor(
             status = combine_status(
                 status,
                 command_support::run_doctor(
-                    project->root, project->manifest_value, profile,
+                    project->root, *project->manifest_value, profile,
                     std::nullopt, project_out, project_err
                 )
             );
@@ -221,7 +226,7 @@ command_error run_workspace_doctor(
                 status = combine_status(
                     status,
                     command_support::run_doctor(
-                        project->root, project->manifest_value, profile,
+                        project->root, *project->manifest_value, profile,
                         requested_artifact, project_out, project_err
                     )
                 );

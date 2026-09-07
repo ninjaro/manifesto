@@ -104,6 +104,12 @@ command_error run_workspace_build(
     const workspace_context& workspace, const std::string& profile,
     const workspace_scope& scope, std::ostream& out, std::ostream& err
 ) {
+    const command_error validity
+        = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     if (!command_support::contains_string(
             command_support::known_build_profiles, profile
         )) {
@@ -121,9 +127,8 @@ command_error run_workspace_build(
         const std::vector<artifact_ref> requested_artifacts
             = workspace_artifacts_for_project(scope, project);
         if (!explicit_project_selection && requested_artifacts.empty()
-            && !supports_build_profile(project->manifest_value, profile)) {
-            out << project->manifest_value.id
-                << ": skipped (profile unsupported)\n";
+            && !supports_build_profile(*project->manifest_value, profile)) {
+            out << project->identity() << ": skipped (profile unsupported)\n";
             continue;
         }
 
@@ -133,7 +138,7 @@ command_error run_workspace_build(
             status = command_support::combine_status(
                 status,
                 run_build(
-                    project->root, project->manifest_value, profile,
+                    project->root, *project->manifest_value, profile,
                     std::nullopt, project_out, project_err
                 )
             );
@@ -142,7 +147,7 @@ command_error run_workspace_build(
                 status = command_support::combine_status(
                     status,
                     run_build(
-                        project->root, project->manifest_value, profile,
+                        project->root, *project->manifest_value, profile,
                         requested_artifact, project_out, project_err
                     )
                 );
@@ -163,6 +168,12 @@ command_error run_workspace_prerelease(
     const prerelease_signing_options& signing_options, std::ostream& out,
     std::ostream& err
 ) {
+    const command_error validity
+        = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     command_error status = command_error::ok;
     for (const workspace_project* project :
          selected_workspace_projects(workspace, scope)) {
@@ -174,7 +185,7 @@ command_error run_workspace_prerelease(
             status = command_support::combine_status(
                 status,
                 run_prerelease(
-                    project->root, project->manifest_value, std::nullopt,
+                    project->root, *project->manifest_value, std::nullopt,
                     version_base, signing_options, project_out, project_err
                 )
             );
@@ -183,7 +194,7 @@ command_error run_workspace_prerelease(
                 status = command_support::combine_status(
                     status,
                     run_prerelease(
-                        project->root, project->manifest_value,
+                        project->root, *project->manifest_value,
                         requested_artifact, version_base, signing_options,
                         project_out, project_err
                     )
@@ -203,6 +214,12 @@ command_error run_workspace_benchmark(
     const workspace_context& workspace, const workspace_scope& scope,
     const string_list& passthrough_args, std::ostream& out, std::ostream& err
 ) {
+    const command_error validity
+        = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     const bool explicit_project_selection = !scope.projects.empty();
     command_error status = command_error::ok;
     for (const workspace_project* project :
@@ -210,8 +227,8 @@ command_error run_workspace_benchmark(
         const std::vector<artifact_ref> requested_artifacts
             = workspace_artifacts_for_project(scope, project);
         if (!explicit_project_selection && requested_artifacts.empty()
-            && !has_benchmarks_enabled(project->manifest_value)) {
-            out << project->manifest_value.id
+            && !has_benchmarks_enabled(*project->manifest_value)) {
+            out << project->identity()
                 << ": skipped (no benchmarks declared)\n";
             continue;
         }
@@ -222,7 +239,7 @@ command_error run_workspace_benchmark(
             status = command_support::combine_status(
                 status,
                 run_benchmark(
-                    project->root, project->manifest_value, std::nullopt,
+                    project->root, *project->manifest_value, std::nullopt,
                     passthrough_args, project_out, project_err
                 )
             );
@@ -231,7 +248,7 @@ command_error run_workspace_benchmark(
                 status = command_support::combine_status(
                     status,
                     run_benchmark(
-                        project->root, project->manifest_value,
+                        project->root, *project->manifest_value,
                         requested_artifact, passthrough_args, project_out,
                         project_err
                     )
@@ -253,6 +270,12 @@ command_error run_workspace_run(
     const std::optional<std::string>& android_mode,
     const string_list& passthrough_args, std::ostream& out, std::ostream& err
 ) {
+    const command_error validity
+        = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     if (!command_support::contains_string(
             command_support::known_build_profiles, profile
         )) {
@@ -281,11 +304,11 @@ command_error run_workspace_run(
     }
 
     const workspace_project* project = selected.front();
-    out << "== " << project->manifest_value.id << " ("
+    out << "== " << project->identity() << " ("
         << relative_workspace_path(workspace, project->root) << ") ==\n";
     out.flush();
     return run_run(
-        project->root, project->manifest_value, profile,
+        project->root, *project->manifest_value, profile,
         workspace_single_artifact_for_project(scope, project), android_mode,
         passthrough_args, out, err
     );
@@ -295,11 +318,17 @@ command_error run_workspace_sync(
     const workspace_context& workspace, const workspace_scope& scope,
     std::ostream& out, std::ostream& err
 ) {
+    const command_error validity
+        = validate_workspace_scope(workspace, scope, err);
+    if (validity != command_error::ok) {
+        return validity;
+    }
+
     command_error status = command_error::ok;
     for (const workspace_project* project :
          selected_workspace_projects(workspace, scope)) {
         const sync_report report
-            = sync_project(project->root, project->manifest_value);
+            = sync_project(project->root, *project->manifest_value);
         if (!report.errors.empty()) {
             status = command_support::combine_status(
                 status, command_error::task_failed
@@ -307,19 +336,19 @@ command_error run_workspace_sync(
             for (const std::string& message : report.errors) {
                 command_support::print_error(
                     err, command_error::task_failed,
-                    project->manifest_value.id + ": " + message
+                    project->identity() + ": " + message
                 );
             }
             continue;
         }
         for (const std::filesystem::path& written_file : report.written_files) {
-            out << project->manifest_value.id << ": wrote "
+            out << project->identity() << ": wrote "
                 << written_file.lexically_relative(workspace.root)
                        .generic_string()
                 << "\n";
         }
         for (const std::filesystem::path& removed_file : report.removed_files) {
-            out << project->manifest_value.id << ": removed "
+            out << project->identity() << ": removed "
                 << removed_file.lexically_relative(workspace.root)
                        .generic_string()
                 << "\n";

@@ -16,9 +16,9 @@ namespace package_surface_render_support {
 
     std::string render_package_surface_template(
         const std::filesystem::path& relative_path,
-        const template_bindings& bindings, std::string* error_message
+        const template_bindings& bindings, std::string*
     ) {
-        return render_text_template(relative_path, bindings, error_message);
+        return render_required_text_template(relative_path, bindings);
     }
 
     std::string

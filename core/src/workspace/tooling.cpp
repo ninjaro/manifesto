@@ -733,11 +733,11 @@ command_error configure_build_tree(
 command_error ensure_local_developer_surface(
     const fs::path& project_root, const manifest& manifest_value,
     std::string* error_message
-) {
-    ensure_local_artifacts(project_root, false, false, false);
+) try {
     const fs::path cmake_path = local_developer_cmakelists_path(project_root);
     const std::string generated_cmake
         = generate_developer_cmakelists(manifest_value, project_root);
+    ensure_local_artifacts(project_root, false, false, false);
     std::string read_error;
     const std::string current_contents
         = read_text_file(cmake_path, &read_error);
@@ -749,6 +749,10 @@ command_error ensure_local_developer_surface(
         return command_error::task_failed;
     }
     return command_error::ok;
+} catch (const template_render_error& error) {
+
+    assign_error(error_message, error.what());
+    return command_error::task_failed;
 }
 
 tool_status probe_tool(

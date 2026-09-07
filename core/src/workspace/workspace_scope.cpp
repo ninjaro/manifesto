@@ -9,7 +9,7 @@ namespace ecosystem::command_support {
 bool workspace_project_id_less(
     const workspace_project& left, const workspace_project& right
 ) {
-    return left.manifest_value.id < right.manifest_value.id;
+    return left.identity() < right.identity();
 }
 
 void append_workspace_project(
@@ -52,7 +52,7 @@ void append_workspace_artifact_filter(
 json workspace_artifact_filter_json(const workspace_artifact_filter& filter) {
     return json::object(
         {
-            { "project", filter.project->manifest_value.id },
+            { "project", filter.project->identity() },
             { "artifact", format_artifact_ref(filter.artifact) },
         }
     );
@@ -72,9 +72,15 @@ parse_qualified_workspace_artifact(const std::string& value) {
     return qualified_workspace_artifact { value.substr(0U, slash), *artifact };
 }
 
-}  // namespace ecosystem::command_support
+} // namespace ecosystem::command_support
 
 namespace ecosystem {
+
+std::string workspace_project::identity() const {
+    return manifest_value.has_value() && !manifest_value->id.empty()
+        ? manifest_value->id
+        : root.filename().generic_string();
+}
 
 std::optional<workspace_context>
 discover_workspace(const std::filesystem::path& root) {
@@ -95,11 +101,15 @@ discover_workspace(const std::filesystem::path& root) {
             continue;
         }
 
-        const manifest_report report = load_manifest(entry.path() / "manifest.json");
-        if (!report.errors.empty() || !report.value.has_value()) {
+        const manifest_report report
+            = load_manifest(entry.path() / "manifest.json");
+        if (!report.has_manifest) {
             continue;
         }
-        projects.push_back(workspace_project { entry.path(), *report.value });
+        projects.push_back(
+            workspace_project { entry.path(), report.path, report.value,
+                                report.errors }
+        );
     }
 
     std::sort(
@@ -148,6 +158,45 @@ void emit_workspace_errors(
     }
 }
 
+command_error validate_workspace_scope(
+    const workspace_context& workspace, const workspace_scope& scope,
+    std::ostream& err
+) {
+    command_error status = command_error::ok;
+    for (const workspace_project* project :
+         selected_workspace_projects(workspace, scope)) {
+        if (project->valid()) {
+            continue;
+        }
+        status = command_error::invalid_request;
+        command_support::print_error(
+            err, status,
+            "invalid project: " + project->identity() + " ("
+                + relative_workspace_path(workspace, project->manifest_path)
+                + ")"
+        );
+        for (const std::string& message : project->errors) {
+            command_support::print_error(err, status, message);
+        }
+    }
+    return status;
+}
+
+json workspace_project_json(
+    const workspace_context& workspace, const workspace_project& project
+) {
+    return json::object(
+        {
+            { "project", project.identity() },
+            { "root", relative_workspace_path(workspace, project.root) },
+            { "manifest_path",
+              relative_workspace_path(workspace, project.manifest_path) },
+            { "valid", project.valid() },
+            { "errors", project.errors },
+        }
+    );
+}
+
 std::string relative_workspace_path(
     const workspace_context& workspace, const std::filesystem::path& path
 ) {
@@ -158,7 +207,7 @@ const workspace_project* find_workspace_project(
     const workspace_context& workspace, const std::string& selector
 ) {
     for (const workspace_project& project : workspace.projects) {
-        if (project.manifest_value.id == selector
+        if (project.identity() == selector
             || relative_workspace_path(workspace, project.root) == selector
             || project.root.filename().generic_string() == selector) {
             return &project;
@@ -375,6 +424,11 @@ command_error parse_workspace_scope(
             );
             return command_error::invalid_request;
         }
+        if (!artifact_project->valid()) {
+            workspace_scope invalid_scope;
+            invalid_scope.projects = { artifact_project };
+            return validate_workspace_scope(workspace, invalid_scope, err);
+        }
 
         if (std::find(
                 scope->projects.begin(), scope->projects.end(), artifact_project
@@ -394,7 +448,7 @@ command_error parse_workspace_scope(
         }
 
         if (!resolve_artifact(
-                artifact_project->manifest_value, filter.artifact
+                 *artifact_project->manifest_value, filter.artifact
             )
                  .has_value()) {
             command_support::print_error(
@@ -426,9 +480,12 @@ command_error parse_workspace_scope(
 
     if (!unqualified_artifacts.empty()) {
         const workspace_project* project = scope->projects.front();
-        for (const command_support::unresolved_workspace_artifact_filter& filter :
-             unqualified_artifacts) {
-            if (!resolve_artifact(project->manifest_value, filter.artifact)
+        if (!project->valid()) {
+            return validate_workspace_scope(workspace, *scope, err);
+        }
+        for (const command_support::unresolved_workspace_artifact_filter&
+                 filter : unqualified_artifacts) {
+            if (!resolve_artifact(*project->manifest_value, filter.artifact)
                      .has_value()) {
                 command_support::print_error(
                     err, command_error::invalid_request,
@@ -460,7 +517,7 @@ json workspace_scope_json(
         selection["groups"] = scope.groups;
     }
     if (scope.projects.size() == 1U) {
-        selection["project"] = scope.projects.front()->manifest_value.id;
+        selection["project"] = scope.projects.front()->identity();
         selection["root"]
             = relative_workspace_path(workspace, scope.projects.front()->root);
     } else if (!scope.projects.empty()) {
@@ -469,7 +526,7 @@ json workspace_scope_json(
             selected_projects.push_back(
                 json::object(
                     {
-                        { "project", project->manifest_value.id },
+                        { "project", project->identity() },
                         { "root",
                           relative_workspace_path(workspace, project->root) },
                     }

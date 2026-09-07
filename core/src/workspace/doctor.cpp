@@ -59,7 +59,7 @@ namespace doctor_support {
     std::string generate_doctor_probe_cmakelists(
         const manifest& manifest_value, const dependency_summary& dependencies,
         std::string* error_message
-    ) {
+    ) try {
         package_surface_options options;
         options.emit_profile_option_lines = true;
         return render_text_template(
@@ -72,6 +72,10 @@ namespace doctor_support {
             },
             error_message
         );
+    } catch (const template_render_error& error) {
+
+        *error_message = error.what();
+        return {};
     }
 
     bool ensure_probe_surface(

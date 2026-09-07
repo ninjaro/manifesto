@@ -156,6 +156,15 @@ std::string render_text_template_candidates(
     return {};
   }
 
+  std::error_code status_error;
+  if (!fs::is_regular_file(template_path, status_error) || status_error) {
+      if (error_message != nullptr) {
+          *error_message = "template is not a readable regular file: "
+              + template_path.generic_string();
+      }
+      return {};
+  }
+
   std::string read_error;
   std::string contents = read_text_file(template_path, &read_error);
   if (!read_error.empty()) {
@@ -186,6 +195,20 @@ std::string render_text_template(const fs::path &relative_path,
                                  std::string *error_message) {
   return render_text_template_candidates({relative_path}, bindings,
                                          error_message);
+}
+
+std::string render_required_text_template(
+    const fs::path& relative_path, const template_bindings& bindings
+) {
+    std::string error_message;
+    const std::string contents
+        = render_text_template(relative_path, bindings, &error_message);
+    if (!error_message.empty()) {
+        throw template_render_error(
+            relative_path.generic_string() + ": " + error_message
+        );
+    }
+    return contents;
 }
 
 } // namespace ecosystem

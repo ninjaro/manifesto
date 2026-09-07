@@ -12,7 +12,13 @@ namespace ecosystem {
 
 struct workspace_project {
     std::filesystem::path root;
-    manifest manifest_value;
+    std::filesystem::path manifest_path;
+    std::optional<manifest> manifest_value;
+    string_list errors;
+
+    bool valid() const { return manifest_value.has_value() && errors.empty(); }
+
+    std::string identity() const;
 };
 
 struct workspace_context {
@@ -39,6 +45,13 @@ std::optional<workspace_context>
 discover_workspace(const std::filesystem::path& root);
 void emit_workspace_errors(
     const workspace_context& workspace, std::ostream& err
+);
+command_error validate_workspace_scope(
+    const workspace_context& workspace, const workspace_scope& scope,
+    std::ostream& err
+);
+json workspace_project_json(
+    const workspace_context& workspace, const workspace_project& project
 );
 std::string relative_workspace_path(
     const workspace_context& workspace, const std::filesystem::path& path

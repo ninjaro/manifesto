@@ -553,30 +553,10 @@ namespace sync_support {
         return contents;
     }
 
-    std::optional<std::string> render_sync_template(
-        const fs::path& relative_path, const template_bindings& bindings,
-        string_list* errors
-    ) {
-        return render_sync_template_candidates(
-            { relative_path }, bindings, errors
-        );
-    }
-
     std::string render_required_sync_template(
         const fs::path& relative_path, const template_bindings& bindings
     ) {
-        string_list errors;
-        const std::optional<std::string> contents
-            = render_sync_template(relative_path, bindings, &errors);
-        if (contents.has_value()) {
-            return *contents;
-        }
-
-        std::ostringstream stream;
-        for (const std::string& error : errors) {
-            stream << "# " << error << "\n";
-        }
-        return stream.str();
+        return render_required_text_template(relative_path, bindings);
     }
 
     std::string
@@ -1866,13 +1846,12 @@ std::string generate_developer_cmakelists(
 }
 
 std::string generate_gitignore() {
-    std::string error_message;
-    return render_text_template("tracked/.gitignore.tpl", {}, &error_message);
+    return render_required_text_template("tracked/.gitignore.tpl", {});
 }
 
 std::vector<tracked_surface_file> generate_tracked_surface_files(
     const manifest& value, const fs::path& project_root, string_list* errors
-) {
+) try {
     string_list local_errors;
     string_list* error_sink = errors == nullptr ? &local_errors : errors;
     std::vector<tracked_surface_file> files;
@@ -1952,7 +1931,20 @@ std::vector<tracked_surface_file> generate_tracked_surface_files(
         workflow_bindings, error_sink
     );
 
+    if (!error_sink->empty()) {
+        if (errors == nullptr) {
+            throw template_render_error(error_sink->front());
+        }
+        return {};
+    }
     return files;
+} catch (const template_render_error& error) {
+
+    if (errors == nullptr) {
+        throw;
+    }
+    errors->push_back(error.what());
+    return {};
 }
 
 string_list

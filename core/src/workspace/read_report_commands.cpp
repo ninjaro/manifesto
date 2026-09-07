@@ -24,26 +24,33 @@ workspace_cxx_report_result build_workspace_cxx_report(
 
     for (const workspace_project* project :
          selected_workspace_projects(workspace, scope)) {
+        if (!project->valid()) {
+            projects.push_back(workspace_project_json(workspace, *project));
+            errors.push_back(project->identity() + ": invalid manifest");
+            result.status
+                = combine_status(result.status, command_error::invalid_request);
+            continue;
+        }
         const std::vector<std::optional<artifact_ref>> artifact_requests
             = workspace_artifact_requests_for_project(scope, project);
         for (const std::optional<artifact_ref>& requested_artifact :
              artifact_requests) {
-            const std::optional<resolved_artifact> resolved
-                = resolve_artifact(project->manifest_value, requested_artifact);
+            const std::optional<resolved_artifact> resolved = resolve_artifact(
+                *project->manifest_value, requested_artifact
+            );
             const bool include_benchmarks = resolved.has_value()
                 && component_is_benchmark_only(*resolved->component_value);
             const command_error configure_status = run_configure_build_tree(
-                project->root, project->manifest_value, "debug",
-                has_tests_enabled(project->manifest_value), false,
+                project->root, *project->manifest_value, "debug",
+                has_tests_enabled(*project->manifest_value), false,
                 include_benchmarks
-                    || has_benchmarks_enabled(project->manifest_value),
+                    || has_benchmarks_enabled(*project->manifest_value),
                 err
             );
             if (configure_status != command_error::ok) {
                 result.status = combine_status(result.status, configure_status);
                 errors.push_back(
-                    project->manifest_value.id
-                    + ": configure failed for C++ analysis"
+                    project->identity() + ": configure failed for C++ analysis"
                 );
                 continue;
             }
@@ -53,35 +60,31 @@ workspace_cxx_report_result build_workspace_cxx_report(
                 ? std::make_optional(requested_artifact->component_id)
                 : std::nullopt;
             const cxx_analysis_report project_report = analyze_project_sources(
-                project->manifest_value,
-                project->root,
-                component_filter,
-                true,
+                *project->manifest_value, project->root, component_filter, true,
                 include_benchmarks
             );
             json project_json = to_json(project_report);
-            project_json["project"] = project->manifest_value.id;
+            project_json["project"] = project->identity();
             project_json["root"]
                 = relative_workspace_path(workspace, project->root);
             if (requested_artifact.has_value()) {
-                project_json["artifact"] = format_artifact_ref(*requested_artifact);
+                project_json["artifact"]
+                    = format_artifact_ref(*requested_artifact);
             }
             projects.push_back(project_json);
 
             if (!project_report.errors.empty()) {
                 for (const std::string& message : project_report.errors) {
-                    errors.push_back(project->manifest_value.id + ": " + message);
+                    errors.push_back(project->identity() + ": " + message);
                 }
-                result.status = combine_status(
-                    result.status, command_error::task_failed
-                );
+                result.status
+                    = combine_status(result.status, command_error::task_failed);
             }
             if (treat_diagnostics_as_failure
                 && (project_report.total_errors > 0
                     || project_report.total_warnings > 0)) {
-                result.status = combine_status(
-                    result.status, command_error::task_failed
-                );
+                result.status
+                    = combine_status(result.status, command_error::task_failed);
             }
         }
     }
@@ -203,6 +206,8 @@ command_error run_workspace_report(
         }
         json report = toolchains_report();
         report["workspace_root"] = workspace.root.string();
+        report["projects"]
+            = workspace_matrix_report(workspace, scope).at("projects");
         const json selection = workspace_scope_json(workspace, scope);
         if (!selection.is_null() && !selection.empty()) {
             report["selection"] = selection;

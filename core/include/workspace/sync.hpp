@@ -18,6 +18,9 @@ struct tracked_surface_file {
     std::string contents;
 };
 
+// String generators throw template_render_error on a required render failure.
+// The tracked-surface generator translates that failure into errors when
+// supplied.
 std::string generate_cmakelists(
     const manifest& value, const std::filesystem::path& project_root = "."
 );
